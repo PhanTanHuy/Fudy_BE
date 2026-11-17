@@ -1,0 +1,48 @@
+services:
+  api:
+    build:
+      context: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      APP_NAME: ${APP_NAME:-FastAPI Backend}
+      DEBUG: ${DEBUG:-false}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fudy_dev}:${POSTGRES_PASSWORD:-change_me}@db:5432/${POSTGRES_DB:-fudy_dev}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fudy_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-fudy_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:
